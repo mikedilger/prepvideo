@@ -1,0 +1,8 @@
+[package]
+name = "prepvideo"
+version = "0.1.0"
+authors = ["Mike Dilger <mike@optcomp.nz>"]
+edition = "2018"
+
+[dependencies]
+regex = "1.1"
