@@ -16,7 +16,8 @@ const FFMPEG_PATH: &'static str = "/usr/bin/ffmpeg";
 
 const CPULIMIT: &'static str = "600";
 
-const USAGE: &'static str = "USAGE: prepvideo <inputfile> <title> <youtube|mikedilger>";
+const USAGE: &'static str = "USAGE: prepvideo <inputfile> <title> <youtube|mikedilger>"
+    ;
 
 fn args_shrink<'a>(command: &mut Command, size: &str) {
     command
@@ -105,8 +106,13 @@ fn main() {
     let loudnorm = Loudnorm::from_analyze(&input_file);
 
     println!("Converting video (second pass w/ multiple functions)...");
-    convert(&input_file, "stage1.webm", &loudnorm, size, quality);
+    convert(&input_file, "tmp1.webm", &loudnorm, size, quality);
+
+    let output_name = title
+        .replace("/", "-")
+        .replace(" ", "_")
+        .to_string();
 
     println!("Stripping metadata...");
-    strip_metadata("stage1.webm", "stage2.webm", &title);
+    strip_metadata("tmp1.webm", &*format!("{}.webm", output_name), &title);
 }
