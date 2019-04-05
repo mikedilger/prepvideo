@@ -1,6 +1,7 @@
 /// Prepare Video
 ///
-/// Goal:  Convert MP4 into MP4 (av1 + opus)
+/// Goal:  Convert MP4 into WEBM (vp9 + opus)
+///        Shrink to a nice small format
 ///        Normalize the audio (loudnorm)
 ///        Strip out the metadata
 
@@ -23,13 +24,12 @@ fn args_shrink<'a>(command: &mut Command, size: &str) {
         .arg(&*format!("scale={}", size));
 }
 
-fn args_av1<'a>(command: &mut Command, quality: u8) {
+fn args_vp9<'a>(command: &mut Command, quality: u8) {
     command
-        .arg("-c:v").arg("libaom-av1")
+        .arg("-c:v").arg("libvpx-vp9")
         .arg("-crf").arg(&*format!("{}", quality))
         .arg("-b:v").arg("0")
-        .arg("-c:a").arg("libopus")
-        .arg("-strict").arg("experimental");
+        .arg("-c:a").arg("libopus");
 }
 
 fn convert(input: &str, output: &str, loudnorm: &Loudnorm, size: &str, quality: u8) {
@@ -41,7 +41,7 @@ fn convert(input: &str, output: &str, loudnorm: &Loudnorm, size: &str, quality: 
         .arg("-af")
         .arg(&*loudnorm.convert_af());
 
-    args_av1(&mut command, quality);
+    args_vp9(&mut command, quality);
     args_shrink(&mut command, size);
     command.arg(output);
 
@@ -90,20 +90,24 @@ fn main() {
     let title = args.next().expect(USAGE);
     let dest = args.next().expect(USAGE);
 
+    // vp9 quality 0-63, recommended 15-35, with 31 recd for 1080p HD
+    // See https://developers.google.com/media/vp9/settings/vod/
     let (size, quality) = if &*dest == "youtube" {
-        ("1280:720", 30)
+        ("1280:720", 32)
     } else if &*dest == "mikedilger" {
-        ("1024:576", 45)
+        // ("512:288", 33)
+        ("640:480", 33)
+        // ("1024:576", 35)
     } else {
-        ("1280:720", 30)
+        ("1280:720", 32)
     };
 
     println!("Analyzing loudnorm...");
     let loudnorm = Loudnorm::from_analyze(&input_file);
 
     println!("Converting video (second pass w/ multiple functions)...");
-    convert(&input_file, "stage1.mp4", &loudnorm, size, quality);
+    convert(&input_file, "stage1.webm", &loudnorm, size, quality);
 
     println!("Stripping metadata...");
-    strip_metadata("stage1.mp4", "stage2.mp4", &title);
+    strip_metadata("stage1.webm", "stage2.webm", &title);
 }

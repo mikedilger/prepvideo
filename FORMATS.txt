@@ -4,7 +4,7 @@ We use:
   VIDEO:	VP9  (until AV1 is supported widely inside of a webm)
   AUDIO:	opus
 
-CONSIDER:
+CONSIDER:  TOO SOON -- av1 dog slow and buggy on ffmpeg, playback not on android yet.
   CONTAINER:	ISO Base media File Format
   VIDEO		AV1
   AUDIO:	opus
@@ -31,7 +31,9 @@ Container:
 	-- AOMedia specification
         -- ONLY CONTAINER formally standardized for AV1 video.
 
-
+    DASH (2011)
+	(not a container, needs a special server)
+    	-- Dynamic Adaptive Streaming over HTTP
 
 =============================================================================
 
