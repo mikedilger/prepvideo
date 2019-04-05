@@ -54,14 +54,18 @@ impl Loudnorm {
     }
 
     pub fn from_analyze(input_file: &str) -> Loudnorm {
-        let output = Command::new(CPULIMIT_PATH).arg("-l").arg(CPULIMIT)
+        let mut command = Command::new(CPULIMIT_PATH);
+        command.arg("-l").arg(CPULIMIT)
             .arg(FFMPEG_PATH)
             .arg("-y")
             .arg("-i").arg(input_file)
             .arg("-af")
             .arg(&*Loudnorm::analyze_af())
-            .arg("-f").arg("null").arg("-")
-        .output()
+            .arg("-f").arg("null").arg("-");
+
+        println!("{:?}", command);
+
+        let output = command.output()
         .expect("failed to execute ffmpeg");
 
         let stderr_str = String::from_utf8_lossy(&*output.stderr).to_string();

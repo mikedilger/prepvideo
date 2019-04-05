@@ -9,16 +9,6 @@ CONSIDER:
   VIDEO		AV1
   AUDIO:	opus
 
-    Do as a single pass:
-
-	-i input.mp4
-	-c:v libaom-av1
-        -crf 30			(from 0-63.  Lower is higher quality and larger)
-	-b:v 0 			(0 triggers "constant quality" with -crf)
-	-strict experimental	(required because VERY slow)
-	-c:a libopus
-        output.mkv
-
 =============================================================================
 
 Container:
