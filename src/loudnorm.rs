@@ -1,5 +1,7 @@
 
+use crate::{CPULIMIT_PATH, CPULIMIT, FFMPEG_PATH};
 use regex::Regex;
+use std::process::Command;
 
 /// LUFS should be between -20 (minimum) and -16 (maximum).
 ///    -20 gives the greatest dynamic range and the least processing.
@@ -33,6 +35,44 @@ pub struct Loudnorm {
 }
 
 impl Loudnorm {
+
+    pub fn analyze_af() -> String {
+        format!("loudnorm=I={I}:TP={TP}:LRA={LRA}:print_format=json",
+                I=LOUDNORM_LUFS, TP=LOUDNORM_TP, LRA=LOUDNORM_LRA)
+    }
+
+    pub fn convert_af(&self) -> String {
+        format!("loudnorm=I={I}:TP={TP}:LRA={LRA}:measured_I={measured_I}:measured_LRA={measured_LRA}:measured_TP={measured_TP}:measured_thresh={measured_thresh}:offset={offset}:linear=true:print_format=summary",
+                I=LOUDNORM_LUFS,
+                TP=LOUDNORM_TP,
+                LRA=LOUDNORM_LRA,
+                measured_I=self.input_i,
+                measured_LRA=self.input_lra,
+                measured_TP=self.input_tp,
+                measured_thresh=self.input_thresh,
+                offset=self.target_offset)
+    }
+
+    pub fn from_analyze(input_file: &str) -> Loudnorm {
+        let output = Command::new(CPULIMIT_PATH).arg("-l").arg(CPULIMIT)
+            .arg(FFMPEG_PATH)
+            .arg("-y")
+            .arg("-i").arg(input_file)
+            .arg("-af")
+            .arg(&*Loudnorm::analyze_af())
+            .arg("-f").arg("null").arg("-")
+        .output()
+        .expect("failed to execute ffmpeg");
+
+        let stderr_str = String::from_utf8_lossy(&*output.stderr).to_string();
+        if ! output.status.success() {
+            panic!("Failed to run ffmpeg to analyze for loudnorm. Stderr follows.\n{}",
+                   stderr_str);
+        }
+
+        Loudnorm::from_analyze_data(&*stderr_str)
+    }
+
     pub fn from_analyze_data(data: &str) -> Loudnorm {
         let mut loudnorm = Loudnorm {
             input_i: "".to_string(),

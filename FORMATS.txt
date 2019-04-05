@@ -1,0 +1,92 @@
+
+We use:
+  CONTAINER:    webm
+  VIDEO:	VP9  (until AV1 is supported widely inside of a webm)
+  AUDIO:	opus
+
+CONSIDER:
+  CONTAINER:	ISO Base media File Format
+  VIDEO		AV1
+  AUDIO:	opus
+
+    Do as a single pass:
+
+	-i input.mp4
+	-c:v libaom-av1
+        -crf 30			(from 0-63.  Lower is higher quality and larger)
+	-b:v 0 			(0 triggers "constant quality" with -crf)
+	-strict experimental	(required because VERY slow)
+	-c:a libopus
+        output.mkv
+
+=============================================================================
+
+Container:
+    mp4
+    	-- Commercial
+    ogv
+    	-- xiph.org, perhaps not widely supported container?
+    mkv (matroska)
+    	-- General container, webm is more specific for our case.
+        -- Standardization for containing AV1 is not finalized, published Sep18 but
+               	then breaking changes followed.
+    webm
+    	-- Royalty free licence from Google
+        -- Internal container is matroska, just a special usage of matroska
+
+    ISO Base Media File Format
+    	-- Based off Apple QuickTime, developed by MPEG; MPEG4 was based on this
+        	too.
+    	-- Used by YouTube
+	-- AOMedia specification
+        -- ONLY CONTAINER formally standardized for AV1 video.
+
+
+
+=============================================================================
+
+Audio Formats:
+
+    MP3
+    AAC
+    	-- Commercial, patented, widely used
+    HE-AAC
+    	-- Commercial, patented, widely used
+    Vorbis, succeeded by Opus
+    	-- Free, but replaced by opus now.
+    Opus (2012)
+    	-- Newest free one
+        -- Replaces both Vorbis and Speex
+
+    Listening tests:
+	July 2014, Hydrogen Audio:  https://listening-test.coresv.net/results.htm
+        	Opus > AAC > Vorbis > MP3
+	https://www.opus-codec.org/comparison/
+
+=============================================================================
+
+Video Formats:
+
+  <2012:
+    H.264/MPEG-4 AVC (succeeded by HEVC)
+    	-- Commercial, patented, widely used
+    	-- Removed from Chromium/Chrome HTML5 tag
+    Theora
+	-- html5 spec original, but requirement was removed
+	-- commercial users fear unknown patent holders
+  ~2012:
+    HEVC (2012)
+        -- Commercial, patented
+        -- 50% bitrate savines over H.264
+        -- x265 open-source encoder (in par with vp9, but slightly better)
+    VP9 (2012) succeeded by AV1
+    	-- royalty-free licence from Google
+        -- libvpx open-source encoder (on par with HEVC via x265, but slightly worse)
+
+  ~2017:
+    AV1 (2017)
+    	-- royalty-free licence from AOMedia
+        -- Not yet supported in Android, or Edge on mobile. Available elsewhere.
+        -- AV1 in Matroska (and thus webm) was not finalized yet as of late 2018...
+        	where is it at now?
+	-- 30% savings compared to VP9
