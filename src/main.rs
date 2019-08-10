@@ -7,6 +7,8 @@
 
 use std::env;
 use std::process::Command;
+use std::path::{Path, PathBuf};
+use std::ffi::OsStr;
 
 mod loudnorm;
 use loudnorm::*;
@@ -16,8 +18,7 @@ const FFMPEG_PATH: &'static str = "/usr/bin/ffmpeg";
 
 const CPULIMIT: &'static str = "600";
 
-const USAGE: &'static str = "USAGE: prepvideo <inputfile> <title> <youtube|mikedilger>"
-    ;
+const USAGE: &'static str = "USAGE: prepvideo <inputfile> <title> <youtube|mikedilger>";
 
 fn args_shrink<'a>(command: &mut Command, size: &str) {
     command
@@ -83,24 +84,81 @@ fn strip_metadata(input: &str, output: &str, title: &str)
     }
 }
 
+fn cwd_files_with_extension(ext: &str) -> Vec<PathBuf> {
+    let mut inputfiles: Vec<PathBuf> = Vec::new();
+    let readdir = std::fs::read_dir(".").unwrap();
+    for entry in readdir {
+        let entry = entry.unwrap();
+        let path = entry.path();
+        if path.is_file() {
+            if path.extension().unwrap() == ext {
+                inputfiles.push(path.to_owned());
+            }
+        }
+    }
+    inputfiles.sort_unstable();
+    inputfiles
+}
+
+fn cat_files<P: AsRef<Path> + AsRef<OsStr>>(inputfiles: Vec<PathBuf>, outputname: P) {
+    let mut command = Command::new(FFMPEG_PATH);
+    for infile in &inputfiles {
+        println!("{:?}", infile);
+        command
+            .arg("-i")
+            .arg(infile);
+    }
+    command.arg("-filter_complex");
+    let mut nextarg: String = String::new();
+    for (i,_infile) in inputfiles.iter().enumerate() {
+        nextarg.push_str(&*format!("[{}:v:0][{}:a:0]", i, i));
+    }
+    nextarg.push_str(&*format!("concat=n={}:v=1:a=1[outv][outa]", inputfiles.len()));
+    command.arg(nextarg);
+    command.arg("-map")
+        .arg("[outv]");
+    command.arg("-map")
+        .arg("[outa]");
+    command.arg(outputname);
+
+    let output = command
+        .output()
+        .expect("failed to execute ffmpeg");
+
+    if ! output.status.success() {
+        let stderr_str = String::from_utf8_lossy(&*output.stderr).to_string();
+        panic!("Failed to run ffmpeg multi command.  Stderr follows.\n{}",
+               stderr_str);
+    }
+}
+
 fn main() {
     let mut args = env::args();
 
     let _bin = args.next().expect(USAGE);
-    let input_file = args.next().expect(USAGE);
+
+    let mut input_file = args.next().expect(USAGE);
     let title = args.next().expect(USAGE);
-    let dest = args.next().expect(USAGE);
+    let kind = args.next().expect(USAGE);
 
     // vp9 quality 0-63, recommended 15-35, with 31 recd for 1080p HD
     // See https://developers.google.com/media/vp9/settings/vod/
-    let (size, quality) = if &*dest == "youtube" {
+    let (size, quality) = if &*kind == "youtube" {
         ("1280:720", 32)
-    } else if &*dest == "mikedilger" {
-        ("640:360", 36)
-        // ("1024:576", 35)
+    } else if &*kind == "mikedilger" {
+        //("640:360", 36)
+        ("1024:576", 35)
     } else {
         ("1280:720", 32)
     };
+
+    // Concat all mp4 files in current directory if inputfile was "."
+    if input_file == "." {
+        println!("Concatenating...");
+        let files = cwd_files_with_extension("mp4");
+        cat_files(files, "concatenated.mp4");
+        input_file = "concatenated.mp4".to_owned();
+    }
 
     println!("Analyzing loudnorm...");
     let loudnorm = Loudnorm::from_analyze(&input_file);
