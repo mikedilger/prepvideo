@@ -18,7 +18,7 @@ const FFMPEG_PATH: &'static str = "/usr/bin/ffmpeg";
 
 const CPULIMIT: &'static str = "600";
 
-const USAGE: &'static str = "USAGE: prepvideo <inputfile> <title> <youtube|mikedilger>";
+const USAGE: &'static str = "USAGE: prepvideo <inputfile> <title> <1280|1024|854|640>";
 
 fn args_shrink<'a>(command: &mut Command, size: &str) {
     command
@@ -139,17 +139,20 @@ fn main() {
 
     let mut input_file = args.next().expect(USAGE);
     let title = args.next().expect(USAGE);
-    let kind = args.next().expect(USAGE);
+    let resolution = args.next().expect(USAGE);
 
     // vp9 quality 0-63, recommended 15-35, with 31 recd for 1080p HD
     // See https://developers.google.com/media/vp9/settings/vod/
-    let (size, quality) = if &*kind == "youtube" {
+    let (size, quality) = if &*resolution == "1280" {
         ("1280:720", 32)
-    } else if &*kind == "mikedilger" {
-        //("640:360", 36)
+    } else if &*resolution == "1024" {
         ("1024:576", 35)
+    } else if &*resolution == "854" {
+        ("854:480", 36)
+    } else if &*resolution == "640" {
+        ("640:360", 36)
     } else {
-        ("1280:720", 32)
+        panic!(USAGE)
     };
 
     // Concat all mp4 files in current directory if inputfile was "."
