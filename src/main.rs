@@ -18,7 +18,7 @@ const FFMPEG_PATH: &'static str = "/usr/bin/ffmpeg";
 
 const CPULIMIT: &'static str = "600";
 
-const USAGE: &'static str = "USAGE: prepvideo <inputfile> <title> <1280|1024|854|640>";
+const USAGE: &'static str = "USAGE: prepvideo <inputfile> <title> <1920|1280|1024|854|640>";
 
 fn args_shrink<'a>(command: &mut Command, size: &str) {
     command
@@ -143,7 +143,9 @@ fn main() {
 
     // vp9 quality 0-63, recommended 15-35, with 31 recd for 1080p HD
     // See https://developers.google.com/media/vp9/settings/vod/
-    let (size, quality) = if &*resolution == "1280" {
+    let (size, quality) = if &*resolution == "1920" {
+        ("1920:1080", 31)
+    } else if &*resolution == "1280" {
         ("1280:720", 32)
     } else if &*resolution == "1024" {
         ("1024:576", 35)
