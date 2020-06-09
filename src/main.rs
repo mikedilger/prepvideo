@@ -35,6 +35,9 @@ struct Vp9Params {
 // w/ a bit rate of 16,995 kbps.  That's 9.44x times as many bits as google's VOD recommendation
 // for that sized video.
 //
+// chaturbate.com videos of 1920x1200@30fps H.264 are between 4900k and 5100k.
+// That is 2.7x as many bits as google's VOD recommendation for that sized video.
+//
 // Previous versions of prepvideo did single-pass and Q mode (-b:v 0).  This holds quality
 // more strictly constant... but I didn't pass in a bitrate at all (min/max/target), just
 // the -crf value... and files were smaller than they are now.  So Google's VOD specs are pretty
