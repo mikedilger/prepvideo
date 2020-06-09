@@ -23,13 +23,22 @@ const USAGE: &'static str = "USAGE: prepvideo <inputfile> <title> <1920|1280|102
 #[derive(Debug, Clone, Copy)]
 struct Vp9Params {
     scale: &'static str,
-    target: u32,
+    target: u32, // in kbps
     crf: u32,
     pass1speed: u32,
     pass2speed: u32,
     tile_columns: u32,
     threads: u32,
 }
+
+// AS A REFERENCE POINT, my Nexus 5x phone video comes out in H.264 at 1920x1200 @30hz
+// w/ a bit rate of 16,995 kbps.  That's 9.44x times as many bits as google's VOD recommendation
+// for that sized video.
+//
+// Previous versions of prepvideo did single-pass and Q mode (-b:v 0).  This holds quality
+// more strictly constant... but I didn't pass in a bitrate at all (min/max/target), just
+// the -crf value... and files were smaller than they are now.  So Google's VOD specs are pretty
+// high specs, producing about 1.6x larger files.
 
 // Google recommendations for Video on Demand (file based):
 // https://web.archive.org/web/20200117200622/https://developers.google.com/media/vp9/settings/vod/
@@ -167,10 +176,15 @@ fn args_shrink<'a>(command: &mut Command, size: &str) {
 }
 
 fn args_vp9<'a>(command: &mut Command, vp9params: Vp9Params) {
+    // We only need 70% of the target Google recommends.
+    // I can't see any significant difference.
+    // (Our old method was only 66% as many bits, and it looked good to me)
+    let bitrate = vp9params.target * 700 / 1000;
+
     command
-        .arg("-b:v").arg(&*format!("{}", vp9params.target))
-        .arg("-minrate").arg(&*format!("{}", vp9params.target * 50 / 100))
-        .arg("-maxrate").arg(&*format!("{}", vp9params.target * 145 / 100))
+        .arg("-b:v").arg(&*format!("{}k", bitrate))
+        .arg("-minrate").arg(&*format!("{}k", bitrate * 50 / 100))
+        .arg("-maxrate").arg(&*format!("{}k", bitrate * 145 / 100))
         .arg("-tile-columns").arg(&*format!("{}", vp9params.tile_columns))
         .arg("-g").arg("240")        // keyframe spacing
         .arg("-threads").arg(&*format!("{}", vp9params.threads))
