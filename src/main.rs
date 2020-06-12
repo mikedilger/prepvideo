@@ -19,7 +19,7 @@ const FFPROBE_PATH: &'static str = "/usr/bin/ffprobe";
 
 const CPULIMIT: &'static str = "1200";
 
-const USAGE: &'static str = "USAGE: prepvideo <inputfile> <title> <x-resolution> <\"good\"|\"ok\">";
+const USAGE: &'static str = "USAGE: prepvideo <inputfile> <title> <x-resolution> <google|good|ok>";
 
 // AS A REFERENCE POINT, my Nexus 5x phone video comes out in H.264 at 1920x1200 @30hz
 // w/ a bit rate of 16,995 kbps.  That's 9.44x times as many bits as google's VOD recommendation
@@ -45,9 +45,10 @@ fn args_shrink<'a>(command: &mut Command, size: &str) {
 
 fn args_vp9<'a>(command: &mut Command, xres: i32, yres: i32, fps: i32, level: &str) {
     let compression_factor = match level {
-        "good" => 640, // 640 is near average of google recommendations
-        "ok" => 1280,
-        _ => 640,
+        "google" => 640, // 640 is near average of google recommendations
+        "good" => 1500, // I cannot tell the difference between this and "google"
+        "ok" => 3000, // Fast moving stuff (eye blinks) look a bit wrong, but otherwise good
+        _ => 1500,
     };
 
     let uncompressed_bitrate = 24 * fps * xres * yres;
