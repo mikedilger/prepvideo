@@ -122,4 +122,4 @@ Thor (cisco)		utilized for AV1 (AOMedia)
 VC-1 (microsoft)
 VC-2 (microsoft)
 
-AV1 (AOMedia)		widespread
+AV1 (AOMedia)		available mostly only for widely distributed media
