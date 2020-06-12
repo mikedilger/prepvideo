@@ -19,7 +19,7 @@ const FFPROBE_PATH: &'static str = "/usr/bin/ffprobe";
 
 const CPULIMIT: &'static str = "1200";
 
-const USAGE: &'static str = "USAGE: prepvideo <inputfile> <title> <x-resolution>";
+const USAGE: &'static str = "USAGE: prepvideo <inputfile> <title> <x-resolution> <\"good\"|\"ok\">";
 
 // AS A REFERENCE POINT, my Nexus 5x phone video comes out in H.264 at 1920x1200 @30hz
 // w/ a bit rate of 16,995 kbps.  That's 9.44x times as many bits as google's VOD recommendation
@@ -43,9 +43,16 @@ fn args_shrink<'a>(command: &mut Command, size: &str) {
         .arg(&*format!("scale={}", size));
 }
 
-fn args_vp9<'a>(command: &mut Command, xres: i32, yres: i32, fps: i32) {
+fn args_vp9<'a>(command: &mut Command, xres: i32, yres: i32, fps: i32, level: &str) {
+    let compression_factor = match level {
+        "good" => 640, // 640 is near average of google recommendations
+        "ok" => 1280,
+        _ => 640,
+    };
+
     let uncompressed_bitrate = 24 * fps * xres * yres;
-    let vp9_bitrate = uncompressed_bitrate / 640; // 640 is near average of google recommendations
+
+    let vp9_bitrate = uncompressed_bitrate / compression_factor;
     println!("VP9 bitrate will be {}kbps", vp9_bitrate / 1000);
 
     let tile_columns = if xres < 640 { 0 }
@@ -69,7 +76,7 @@ fn args_vp9<'a>(command: &mut Command, xres: i32, yres: i32, fps: i32) {
         .arg("-c:a").arg("libopus");
 }
 
-fn convert(input: &str, outputfile: &str, loudnorm: &Loudnorm, xres: i32, fps: i32) {
+fn convert(input: &str, outputfile: &str, loudnorm: &Loudnorm, xres: i32, fps: i32, level: &str) {
 
     // We always use 1:1.777777 aspect ratios
     let yres = xres * 5625 / 10000;
@@ -83,7 +90,7 @@ fn convert(input: &str, outputfile: &str, loudnorm: &Loudnorm, xres: i32, fps: i
         .arg(FFMPEG_PATH)
         .arg("-i").arg(input); // skip loudnorm on pass1
     args_shrink(&mut command, &*format!("{}x{}", xres, yres));
-    args_vp9(&mut command, xres, yres, fps);
+    args_vp9(&mut command, xres, yres, fps, level);
     command.arg("-pass").arg("1")
         .arg("-speed").arg(&*format!("{}", pass1speed))
         .arg("-y");
@@ -109,7 +116,7 @@ fn convert(input: &str, outputfile: &str, loudnorm: &Loudnorm, xres: i32, fps: i
         .arg("-af")
         .arg(&*loudnorm.convert_af());
     args_shrink(&mut command, &*format!("{}x{}", xres, yres));
-    args_vp9(&mut command, xres, yres, fps);
+    args_vp9(&mut command, xres, yres, fps, level);
     command.arg("-pass").arg("2")
         .arg("-speed").arg(&*format!("{}", pass2speed))
         .arg("-y");
@@ -240,6 +247,7 @@ fn main() {
     let mut input_file = args.next().expect(USAGE);
     let title = args.next().expect(USAGE);
     let xres = args.next().expect(USAGE).parse::<i32>().unwrap();
+    let level = args.next().expect(USAGE);
 
     // Concat all mp4 files in current directory if inputfile was "."
     if input_file == "." {
@@ -256,7 +264,7 @@ fn main() {
     let loudnorm = Loudnorm::from_analyze(&input_file);
 
     println!("Converting video (two passes w/ multiple functions)...");
-    convert(&input_file, "tmp1.webm", &loudnorm, xres, fps);
+    convert(&input_file, "tmp1.webm", &loudnorm, xres, fps, &*level);
 
     let output_name = title
         .replace("/", "-")
