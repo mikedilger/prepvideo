@@ -19,7 +19,7 @@ const FFPROBE_PATH: &'static str = "/usr/bin/ffprobe";
 
 const CPULIMIT: &'static str = "1200";
 
-const USAGE: &'static str = "USAGE: prepvideo <inputfile> <title> <x-resolution> <google|good|ok>";
+const USAGE: &'static str = "USAGE: prepvideo <inputfile> <title> <x-resolution> <vp9|av1> <google|good|ok>";
 
 // AS A REFERENCE POINT, my Nexus 5x phone video comes out in H.264 at 1920x1200 @30hz
 // w/ a bit rate of 16,995 kbps.  That's 9.44x times as many bits as google's VOD recommendation
@@ -45,6 +45,7 @@ fn main() {
     let mut input_file = args.next().expect(USAGE);
     let title = args.next().expect(USAGE);
     let xres = args.next().expect(USAGE).parse::<i32>().unwrap();
+    let algo = args.next().expect(USAGE);
     let level = args.next().expect(USAGE);
 
     // Concat all mp4 files in current directory if inputfile was "."
@@ -62,7 +63,7 @@ fn main() {
     let loudnorm = Loudnorm::from_analyze(&input_file);
 
     println!("Converting video (two passes w/ multiple functions)...");
-    convert(&input_file, "tmp1.webm", &loudnorm, xres, fps, &*level);
+    convert(&input_file, "tmp1.webm", &loudnorm, xres, fps, &*algo, &*level);
 
     let output_name = title
         .replace("/", "-")
@@ -153,7 +154,9 @@ fn get_fps(input: &str) -> i32 {
     }
 }
 
-fn convert(input: &str, outputfile: &str, loudnorm: &Loudnorm, xres: i32, fps: i32, level: &str) {
+fn convert(input: &str, outputfile: &str, loudnorm: &Loudnorm, xres: i32, fps: i32,
+           algo: &str, level: &str)
+{
 
     // We always use 1:1.777777 aspect ratios
     let yres = xres * 5625 / 10000;
@@ -167,7 +170,8 @@ fn convert(input: &str, outputfile: &str, loudnorm: &Loudnorm, xres: i32, fps: i
         .arg(FFMPEG_PATH)
         .arg("-i").arg(input); // skip loudnorm on pass1
     args_shrink(&mut command, &*format!("{}x{}", xres, yres));
-    args_vp9(&mut command, xres, yres, fps, level);
+    args_video(&mut command, xres, yres, fps, algo, level);
+    args_audio(&mut command);
     command.arg("-pass").arg("1")
         .arg("-speed").arg(&*format!("{}", pass1speed))
         .arg("-y");
@@ -193,7 +197,8 @@ fn convert(input: &str, outputfile: &str, loudnorm: &Loudnorm, xres: i32, fps: i
         .arg("-af")
         .arg(&*loudnorm.convert_af());
     args_shrink(&mut command, &*format!("{}x{}", xres, yres));
-    args_vp9(&mut command, xres, yres, fps, level);
+    args_video(&mut command, xres, yres, fps, algo, level);
+    args_audio(&mut command);
     command.arg("-pass").arg("2")
         .arg("-speed").arg(&*format!("{}", pass2speed))
         .arg("-y");
@@ -212,24 +217,35 @@ fn convert(input: &str, outputfile: &str, loudnorm: &Loudnorm, xres: i32, fps: i
     }
 }
 
-fn args_shrink<'a>(command: &mut Command, size: &str) {
+fn args_audio(command: &mut Command) {
+    command
+        .arg("-c:a").arg("libopus");
+}
+
+fn args_shrink(command: &mut Command, size: &str) {
     command
         .arg("-vf")
         .arg(&*format!("scale={}", size));
 }
 
-fn args_vp9<'a>(command: &mut Command, xres: i32, yres: i32, fps: i32, level: &str) {
+fn args_video(command: &mut Command, xres: i32, yres: i32, fps: i32, algo: &str, level: &str) {
+
     let compression_factor = match level {
         "google" => 640, // 640 is near average of google recommendations
         "good" => 1500, // I cannot tell the difference between this and "google"
         "ok" => 3000, // Fast moving stuff (eye blinks) look a bit wrong, but otherwise good
         _ => 1500,
     };
+    let compression_factor = match algo {
+        "vp9" => compression_factor,
+        "av1" => compression_factor * 100 / 70, // 30% less bits, 70% remaining bits
+        _ => panic!(USAGE)
+    };
 
     let uncompressed_bitrate = 24 * fps * xres * yres;
 
-    let vp9_bitrate = uncompressed_bitrate / compression_factor;
-    println!("VP9 bitrate will be {}kbps", vp9_bitrate / 1000);
+    let bitrate = uncompressed_bitrate / compression_factor;
+    println!("Target bitrate will be {}kbps", bitrate / 1000);
 
     let tile_columns = if xres < 640 { 0 }
     else if xres < 1024 { 1 }
@@ -240,16 +256,27 @@ fn args_vp9<'a>(command: &mut Command, xres: i32, yres: i32, fps: i32, level: &s
     let crf = 31; // 31 is always reasonable
 
     command
-        .arg("-b:v").arg(&*format!("{}", vp9_bitrate))
-        .arg("-minrate").arg(&*format!("{}", vp9_bitrate * 50 / 100))
-        .arg("-maxrate").arg(&*format!("{}", vp9_bitrate * 145 / 100))
+        .arg("-b:v").arg(&*format!("{}", bitrate))
+        .arg("-minrate").arg(&*format!("{}", bitrate * 50 / 100))
+        .arg("-maxrate").arg(&*format!("{}", bitrate * 145 / 100))
         .arg("-tile-columns").arg(&*format!("{}", tile_columns))
         .arg("-g").arg("240")        // keyframe spacing
         .arg("-threads").arg(&*format!("{}", threads))
-        .arg("-quality").arg("good")
-        .arg("-crf").arg(&*format!("{}", crf))
-        .arg("-c:v").arg("libvpx-vp9")
-        .arg("-c:a").arg("libopus");
+        .arg("-crf").arg(&*format!("{}", crf));
+
+    match algo {
+        "vp9" => {
+            command
+                .arg("-quality").arg("good")
+                .arg("-c:v").arg("libvpx-vp9");
+        },
+        "av1" => {
+            command
+                .arg("-c:v").arg("libaom-av1")
+                .arg("-strict").arg("-2");
+        },
+        _ => panic!(USAGE)
+    }
 }
 
 fn strip_metadata(input: &str, output: &str, title: &str)
