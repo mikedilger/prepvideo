@@ -19,7 +19,7 @@ const FFPROBE_PATH: &'static str = "/usr/bin/ffprobe";
 
 const CPULIMIT: &'static str = "1200";
 
-const USAGE: &'static str = "USAGE: prepvideo <inputfile> <title> <x-resolution> <vp9|av1> <google|good|ok>";
+const USAGE: &'static str = "USAGE: prepvideo <inputfile> <title> <x-resolution> <vp9|av1> <VHQ|HQ|MQ|LQ|VLQ>";
 
 // AS A REFERENCE POINT, my Nexus 5x phone video comes out in H.264 at 1920x1200 @30hz
 // w/ a bit rate of 16,995 kbps.  That's 9.44x times as many bits as google's VOD recommendation
@@ -171,7 +171,7 @@ fn convert(input: &str, outputfile: &str, loudnorm: &Loudnorm, xres: i32, fps: i
         .arg("-i").arg(input); // skip loudnorm on pass1
     args_shrink(&mut command, &*format!("{}x{}", xres, yres));
     args_video(&mut command, xres, yres, fps, algo, level);
-    args_audio(&mut command);
+    args_audio(&mut command, level);
     command.arg("-pass").arg("1")
         .arg("-speed").arg(&*format!("{}", pass1speed))
         .arg("-y");
@@ -198,7 +198,7 @@ fn convert(input: &str, outputfile: &str, loudnorm: &Loudnorm, xres: i32, fps: i
         .arg(&*loudnorm.convert_af());
     args_shrink(&mut command, &*format!("{}x{}", xres, yres));
     args_video(&mut command, xres, yres, fps, algo, level);
-    args_audio(&mut command);
+    args_audio(&mut command, level);
     command.arg("-pass").arg("2")
         .arg("-speed").arg(&*format!("{}", pass2speed))
         .arg("-y");
@@ -217,9 +217,27 @@ fn convert(input: &str, outputfile: &str, loudnorm: &Loudnorm, xres: i32, fps: i
     }
 }
 
-fn args_audio(command: &mut Command) {
+fn args_audio(command: &mut Command, level: &str) {
+    // For my voice, in stereo, 32kbps is plenty
+    // For streaming music, 64-96 kbps.
+    // For music storage
+    //    stereo: 96-128 kbps
+    //    5.1: 128-256 kbps
+    //    7.1: 256-450 kbps
+    // For archival
+    //    use FLAC to prevent generation loss
+
+    let bitrate = match level {
+        "VHQ" => 96,
+        "HQ" => 64,
+        "MQ" => 32,
+        "LQ" => 24,
+        "VLQ" => 16,
+        _ => 64,
+    };
     command
-        .arg("-c:a").arg("libopus");
+        .arg("-c:a").arg("libopus")
+        .arg("-b:a").arg(&*format!("{}k",bitrate));
 }
 
 fn args_shrink(command: &mut Command, size: &str) {
@@ -231,9 +249,11 @@ fn args_shrink(command: &mut Command, size: &str) {
 fn args_video(command: &mut Command, xres: i32, yres: i32, fps: i32, algo: &str, level: &str) {
 
     let compression_factor = match level {
-        "google" => 640, // 640 is near average of google recommendations
-        "good" => 1500, // I cannot tell the difference between this and "google"
-        "ok" => 3000, // Fast moving stuff (eye blinks) look a bit wrong, but otherwise good
+        "VHQ" => 280, // 280 is better than almost all of google recommendations
+        "HQ" => 640, // 640 is near average of google recommendations
+        "MQ" => 1500, // I cannot tell the difference between this and "google"
+        "LQ" => 3200, // Fast moving stuff (eye blinks) look a bit wrong, but otherwise looks ok
+        "VLQ" => 4600,
         _ => 1500,
     };
     let compression_factor = match algo {
