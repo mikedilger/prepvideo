@@ -119,8 +119,19 @@ fn build_cmd(operation: &Operation, loudnorm: Option<&Loudnorm>) -> Command {
             .arg("-metadata").arg(format!("title={}",operation.title));
     }
 
-    command.arg("-af").arg(audio_filters.join(","));
-    command.arg("-vf").arg(video_filters.join(","));
+    if operation.audio_codec != ACodec::Copy {
+        let af = audio_filters.join(",");
+        if af.len() > 0 {
+            command.arg("-af").arg(af);
+        }
+    }
+
+    if operation.video_codec != VCodec::Copy {
+        let vf = video_filters.join(",");
+        if vf.len() > 0 {
+            command.arg("-vf").arg(vf);
+        }
+    }
 
     match operation.audio_codec {
         ACodec::Copy => {
