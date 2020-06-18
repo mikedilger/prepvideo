@@ -1,2 +1,4 @@
 /target
 **/*.rs.bk
+cmd
+ffmpeg2pass-0.log
