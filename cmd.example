@@ -10,5 +10,6 @@ video_codec:    Vp9,
 audio_quality:  Medium,
 audio_codec:    Opus,
 strip_metadata: true,
-title:          "Scott Adams on Victimhood"
+title:          "Scott Adams on Victimhood",
+container:      Webm
 )

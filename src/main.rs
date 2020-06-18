@@ -23,6 +23,24 @@ pub enum Quality {
     VeryHigh,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Hash)]
+#[derive(Serialize, Deserialize)]
+#[derive(EnumIter, AsRefStr, EnumString)]
+pub enum Container {
+    Mp4,
+    Mkv,
+    Webm
+}
+impl Container {
+    pub fn extension(&self) -> &'static str {
+        match *self {
+            Container::Mp4 => "mp4",
+            Container::Mkv => "mkv",
+            Container::Webm => "webm",
+        }
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct Operation {
     pub cpulimit: u32,
@@ -37,6 +55,7 @@ pub struct Operation {
     pub audio_codec: ACodec,
     pub strip_metadata: bool,
     pub title: String,
+    pub container: Container,
 }
 
 const CPULIMIT_PATH: &'static str = "/usr/bin/cpulimit";
@@ -59,7 +78,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>>
         .replace("/", "-")
         .replace(" ", "_")
         .to_string();
-    let output = format!("{}.webm", title);
+    let output = format!("{}.{}", title, operation.container.extension());
     let pass1speed = 4;
     let pass2speed = if operation.scale.0 < 1024 { 1 } else { 2 };
 
