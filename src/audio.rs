@@ -12,17 +12,22 @@ pub enum ACodec {
     Opus,
 }
 
-/// LUFS should be between -20 (minimum) and -16 (maximum).
-///    -20 gives the greatest dynamic range and the least processing.
-///    -16 gives the most loudness.
+/// loudnorm: http://k.ylo.ph/2016/04/04/loudnorm.html
+
+/// LUFS
+///    This is "I", the Integrated Loudness Target (range -70 through -5, default -24)
+///    AES streaming loudness reccommendation says LUFS should be between -20 (minimum) and
+///          -16 (maximum) for best results.
+///      -20 gives the greatest dynamic range and the least processing.
+///      -16 gives the most loudness
 pub const LOUDNORM_LUFS: &'static str = "-19";
 
 /// TP (limiter threshold peak) is the level of the true peak.  This is recommended to -1.0
-/// so as not to clip, or some do -1.5.  Don't do 0.
+/// so as not to clip, or some do -1.5.  Don't do 0.  Default is -2.0.
 pub const LOUDNORM_TP: &'static str = "-1.0";
 
-/// LRA is the variation in loudness on a macroscopic scale.  Default is 7.
-/// Other references tend to use 11.
+/// LRA is Loudness Range target (1.0 - 20.0), is the variation in loudness on a
+/// macroscopic scale.  Default is 7. Other references tend to use 11.
 pub const LOUDNORM_LRA: &'static str = "9";
 
 #[derive(Debug)]
