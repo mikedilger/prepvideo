@@ -1,7 +1,16 @@
 
-use crate::{CPULIMIT_PATH, CPULIMIT, FFMPEG_PATH};
-use regex::Regex;
 use std::process::Command;
+use serde::{Serialize, Deserialize};
+use regex::Regex;
+use crate::Quality;
+
+#[derive(Debug, Clone, Copy, PartialEq, Hash)]
+#[derive(Serialize, Deserialize)]
+#[derive(EnumIter, AsRefStr, EnumString)]
+pub enum ACodec {
+    Copy,
+    Opus,
+}
 
 /// LUFS should be between -20 (minimum) and -16 (maximum).
 ///    -20 gives the greatest dynamic range and the least processing.
@@ -35,49 +44,26 @@ pub struct Loudnorm {
 }
 
 impl Loudnorm {
-
-    pub fn analyze_af() -> String {
-        format!("loudnorm=I={I}:TP={TP}:LRA={LRA}:print_format=json",
-                I=LOUDNORM_LUFS, TP=LOUDNORM_TP, LRA=LOUDNORM_LRA)
-    }
-
-    pub fn convert_af(&self) -> String {
-        format!("loudnorm=I={I}:TP={TP}:LRA={LRA}:measured_I={measured_I}:measured_LRA={measured_LRA}:measured_TP={measured_TP}:measured_thresh={measured_thresh}:offset={offset}:linear=true:print_format=summary",
-                I=LOUDNORM_LUFS,
-                TP=LOUDNORM_TP,
-                LRA=LOUDNORM_LRA,
-                measured_I=self.input_i,
-                measured_LRA=self.input_lra,
-                measured_TP=self.input_tp,
-                measured_thresh=self.input_thresh,
-                offset=self.target_offset)
-    }
-
-    pub fn from_analyze(input_file: &str) -> Loudnorm {
-        let mut command = Command::new(CPULIMIT_PATH);
-        command.arg("-l").arg(CPULIMIT)
-            .arg(FFMPEG_PATH)
+    pub fn from_analyze(input_file: &str, cpulimit: u32) -> Loudnorm {
+        let mut command = Command::new(crate::CPULIMIT_PATH);
+        command.arg("-l").arg(&*format!("{}", cpulimit))
+            .arg(crate::FFMPEG_PATH)
             .arg("-y")
             .arg("-i").arg(input_file)
             .arg("-af")
             .arg(&*Loudnorm::analyze_af())
             .arg("-f").arg("null").arg("-");
 
-        println!("{:?}", command);
-
-        let output = command.output()
-        .expect("failed to execute ffmpeg");
-
-        let stderr_str = String::from_utf8_lossy(&*output.stderr).to_string();
-        if ! output.status.success() {
-            panic!("Failed to run ffmpeg to analyze for loudnorm. Stderr follows.\n{}",
-                   stderr_str);
-        }
-
+        let stderr_str = crate::run_cmd(command);
         Loudnorm::from_analyze_data(&*stderr_str)
     }
 
-    pub fn from_analyze_data(data: &str) -> Loudnorm {
+    fn analyze_af() -> String {
+        format!("loudnorm=I={I}:TP={TP}:LRA={LRA}:print_format=json",
+                I=LOUDNORM_LUFS, TP=LOUDNORM_TP, LRA=LOUDNORM_LRA)
+    }
+
+    fn from_analyze_data(data: &str) -> Loudnorm {
         let mut loudnorm = Loudnorm {
             input_i: "".to_string(),
             input_lra: "".to_string(),
@@ -130,4 +116,30 @@ impl Loudnorm {
 
         loudnorm
     }
+
+    pub fn convert_af(&self) -> String {
+        format!("loudnorm=I={I}:TP={TP}:LRA={LRA}:measured_I={measured_I}:measured_LRA={measured_LRA}:measured_TP={measured_TP}:measured_thresh={measured_thresh}:offset={offset}:linear=true:print_format=summary",
+                I=LOUDNORM_LUFS,
+                TP=LOUDNORM_TP,
+                LRA=LOUDNORM_LRA,
+                measured_I=self.input_i,
+                measured_LRA=self.input_lra,
+                measured_TP=self.input_tp,
+                measured_thresh=self.input_thresh,
+                offset=self.target_offset)
+    }
+}
+
+pub fn opus(command: &mut Command, quality: Quality) {
+    let bitrate = match quality {
+        Quality::VeryLow => 16,
+        Quality::Low => 24,
+        Quality::Medium => 32,
+        Quality::High => 64,
+        Quality::VeryHigh => 96
+    };
+
+    command
+        .arg("-c:a").arg("libopus")
+        .arg("-b:a").arg(&*format!("{}k",bitrate));
 }
