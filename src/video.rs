@@ -17,10 +17,13 @@ pub fn vp9_or_av1(command: &mut Command, operation: &Operation) {
         let uncompressed_bitrate = uncompressed_bitrate(operation.video_fps,
                                                         operation.scale.0 as u32,
                                                         operation.scale.1 as u32);
+        println!("Uncompressed bitrate = {}", uncompressed_bitrate);
         let compression_factor = compression_factor(operation.video_codec,
                                                     operation.video_quality);
-        uncompressed_bitrate / compression_factor
+        println!("Compression factor = {}", compression_factor);
+        (uncompressed_bitrate / compression_factor as u64) as u32
     };
+    println!("bitrate = {}", bitrate);
 
     let tile_columns = if operation.scale.0 < 640 { 0 }
     else if operation.scale.0 < 1024 { 1 }
@@ -55,9 +58,9 @@ pub fn vp9_or_av1(command: &mut Command, operation: &Operation) {
 }
 
 
-fn uncompressed_bitrate(fps: (u32, u32), x: u32, y: u32) -> u32 {
+fn uncompressed_bitrate(fps: (u32, u32), x: u32, y: u32) -> u64 {
     // 24 from bits per pixel (RGB 8-bit)
-    24 * x * y * fps.0 / fps.1
+    24 * x as u64 * y as u64 * fps.0 as u64 / fps.1 as u64
 }
 
 fn compression_factor(codec: VCodec, quality: Quality) -> u32 {
