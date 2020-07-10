@@ -1,15 +1,16 @@
 (
 cpulimit:       1200,
-input:          "/z/social/other_videos/scott.mp4",
-transpose:      Some(2),
-scale:          (568,320),
+inputs:         ["video_intro/sane_hermit_intro.mp4",
+                 "raw/MVI_0000.mp4"],
+transpose:      None,
+scale:          (1280,720),
 loudnorm:       true,
 video_quality:  Medium,
-video_fps:      (24,1),
+video_fps:      (30000,1001),
 video_codec:    Vp9,
 audio_quality:  Medium,
 audio_codec:    Opus,
 strip_metadata: true,
-title:          "Scott Adams on Victimhood",
+title:          "My Video",
 container:      Webm
 )

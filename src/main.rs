@@ -2,7 +2,8 @@
 #[macro_use]
 extern crate strum_macros;
 
-use std::io::Read;
+use std::io::{Read, Write};
+use std::fs::File;
 use std::process::Command;
 use serde::{Serialize, Deserialize};
 
@@ -44,7 +45,7 @@ impl Container {
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct Operation {
     pub cpulimit: u32,
-    pub input: String,
+    pub inputs: Vec<String>,
     pub transpose: Option<u8>,
     pub scale: (u16, u16),
     pub loudnorm: bool,
@@ -74,6 +75,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>>
     println!("Operation is: {:?}", operation);
     //println!("{}", ron::ser::to_string::<Operation>(&operation)?);
 
+    // concatenation of inputs
+    {
+        let mut concat_list_file = File::create("concat.txt")?;
+        for input in &operation.inputs {
+            writeln!(concat_list_file, "file '{}'", input)?;
+        }
+        let mut cmd = Command::new(crate::FFMPEG_PATH);
+        cmd.arg("-f").arg("concat")
+            .arg("-i").arg("concat.txt")
+            .arg("-c").arg("copy")
+            .arg("concat.mp4");
+        let _ = run_cmd(cmd);
+    }
+
     let title = operation.title
         .replace("/", "-")
         .replace(" ", "_")
@@ -84,20 +99,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>>
 
     // Analyze loudness
     let loudnorm = if operation.loudnorm {
-        Some(Loudnorm::from_analyze(&operation.input, operation.cpulimit))
+        Some(Loudnorm::from_analyze("concat.mp4", operation.cpulimit))
     } else {
         None
     };
 
     // Pass 1
-    let mut pass1 = build_cmd(&operation, loudnorm.as_ref());
+    let mut pass1 = build_cmd(&operation, loudnorm.as_ref(), "concat.mp4");
     pass1.arg("-pass").arg("1")
         .arg("-speed").arg(&*format!("{}", pass1speed))
         .arg(&*output);
     let _ = run_cmd(pass1);
 
     // Pass 2
-    let mut pass2 = build_cmd(&operation, loudnorm.as_ref());
+    let mut pass2 = build_cmd(&operation, loudnorm.as_ref(), "concat.mp4");
     pass2.arg("-pass").arg("2")
         .arg("-speed").arg(&*format!("{}", pass2speed))
         .arg(&*output);
@@ -106,13 +121,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>>
     Ok(())
 }
 
-fn build_cmd(operation: &Operation, loudnorm: Option<&Loudnorm>) -> Command {
+fn build_cmd(operation: &Operation, loudnorm: Option<&Loudnorm>,
+             concat_file: &str) -> Command {
     let mut command = Command::new(crate::CPULIMIT_PATH);
 
     command.arg("-l").arg(&*format!("{}", operation.cpulimit))
         .arg(crate::FFMPEG_PATH)
         .arg("-y")
-        .arg("-i").arg(&operation.input);
+        .arg("-i").arg(concat_file);
 
     let mut audio_filters: Vec<String> = Vec::new();
     let mut video_filters: Vec<String> = Vec::new();
