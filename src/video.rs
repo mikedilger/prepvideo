@@ -1,3 +1,5 @@
+// © Copyright 2021 Michael Dilger <mike@mikedilger.com>
+// All rights reserved.
 
 use serde::{Serialize, Deserialize};
 use std::process::Command;

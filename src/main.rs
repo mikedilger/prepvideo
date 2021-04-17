@@ -1,3 +1,5 @@
+// © Copyright 2021 Michael Dilger <mike@mikedilger.com>
+// All rights reserved.
 
 #[macro_use]
 extern crate strum_macros;
